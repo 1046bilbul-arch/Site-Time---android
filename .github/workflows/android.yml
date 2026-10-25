@@ -30,6 +30,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Validate embedded HTML and JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('app/src/main/assets/index.html').read_text()
+          assert len(re.findall(r'<script(?:\\s[^>]*)?>', html, re.I)) == 1, 'Expected one script block'
+          assert len(re.findall(r'</script>', html, re.I)) == 1, 'Unexpected extra closing script'
+          assert html.strip().endswith('</html>'), 'Unexpected content after HTML document'
+          script = re.search(r'<script(?:\\s[^>]*)?>(.*?)</script>', html, re.S | re.I).group(1)
+          Path('/tmp/site-time-check.js').write_text(script)
+          PY
+          node --check /tmp/site-time-check.js
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
